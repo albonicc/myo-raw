@@ -280,6 +280,8 @@ class MyoRaw(object):
                 ## something
                 emg = vals[:8]
                 moving = vals[8]
+                #print(f'emg: {emg}')
+                #print(f'moving: {moving}')
                 self.on_emg(emg, moving)
             elif attr == 0x1c:
                 vals = unpack('10h', pay)
@@ -453,7 +455,9 @@ if __name__ == '__main__':
         #     times.pop(0)
 
     # m.add_emg_handler(proc_emg)
-    m.add_emg_handler(lambda e: print('emg', e))
+    # m.add_emg_handler(lambda e: print('emg', e))
+    m.add_emg_handler(lambda e, m: print(f'emg: {e} m: {m}'))
+    m.add_imu_handler(lambda q, a, g : print(f'magnetometer: {q} accelerometer: {a} gyroscope {g}\n\n'))
     m.connect()
 
     m.add_arm_handler(lambda arm, xdir: print('arm', arm, 'xdir', xdir))
