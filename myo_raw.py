@@ -245,9 +245,12 @@ class MyoRaw(object):
             ## 1000, EMG data becomes slower to respond to changes. In conclusion,
             ## 1000 is probably a good value.
             C = 1000
+            
             emg_hz = 50
+
             ## strength of low-pass filtering of EMG data
             emg_smooth = 100
+        
 
             imu_hz = 50
 
@@ -290,7 +293,7 @@ class MyoRaw(object):
                 gyro = vals[7:10]
                 self.on_imu(quat, acc, gyro)
             elif attr == 0x23:
-                typ, val, xdir = unpack('3B', pay)
+                typ, val, xdir,_,_,_ = unpack('6B', pay)
 
                 if typ == 1: # on arm
                     self.on_arm(Arm(val), XDirection(xdir))
@@ -477,8 +480,9 @@ if __name__ == '__main__':
             #             if K_KP1 <= ev.key <= K_KP3:
             #                 m.vibrate(ev.key - K_KP0)
 
-    except KeyboardInterrupt:
-        pass
+    except:
+        while True:
+            m.run(1)
     finally:
-        m.disconnect()
+        #m.disconnect()
         print()
