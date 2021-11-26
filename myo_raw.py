@@ -429,11 +429,11 @@ def process_data(e, q, a, g):
         processed.update(**q_data)
         print(f'magnetometer: {q}')
     if a:
-        a_data = {f'accelerometer_{literals[index]}': val for index, val in enumerate(q)}
+        a_data = {f'accelerometer_{literals[index]}': val for index, val in enumerate(a)}
         processed.update(**a_data)
         print(f'accelerometer: {a}')
     if g:
-        g_data = {f'accelerometer_{literals[index]}': val for index, val in enumerate(q)}
+        g_data = {f'gyroscope_{literals[index]}': val for index, val in enumerate(g)}
         processed.update(**g_data)
         print(f'gyroscope: {g}')
 
@@ -458,7 +458,8 @@ if __name__ == '__main__':
     try:
         while True:
             m.run(1)
-    except Exception:
-        pass
+    except:
+        while True:
+            m.run(1)
     finally:
         print()

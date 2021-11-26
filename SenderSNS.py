@@ -14,7 +14,10 @@ class SenderSNS():
         self.topic_ARN = topic_ARN
 
     def send_data(self, publish_data):
-        publish_data['ts'] = datetime.now()
+        ts = datetime.timestamp(datetime.now())
+
+        publish_data['ts'] = str(ts)
+        print(publish_data)
         response = self.sns_client.publish(
             TopicArn=self.topic_ARN,
             Message=json.dumps(publish_data),
