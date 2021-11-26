@@ -461,8 +461,8 @@ if __name__ == '__main__':
     try:
         while True:
             m.run(10)
-    except Exception as e:
-        print(e)
-        sys.exit()
+    except:
+        while True:
+            m.run(10)
     finally:
         print('FINISHED EXEC')
