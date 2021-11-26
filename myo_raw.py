@@ -387,12 +387,14 @@ class MyoRaw(object):
 
     def on_emg(self, emg):
         for h in self.emg_handlers:
-            self.processed_data.update(**h(emg, None, None, None))
+            res = h(emg, None, None, None)
+            self.processed_data.update(**res)
             self.on_emg_flag = True
 
     def on_imu(self, quat, acc, gyro):
         for h in self.imu_handlers:
-            self.processed_data.update(**h(None, quat, acc, gyro))
+            res = h(None, quat, acc, gyro)
+            self.processed_data.update(**res)
             self.on_imu_flag = True
             if self.on_emg_flag:
                 self.data_ready = True
@@ -458,9 +460,9 @@ if __name__ == '__main__':
 
     try:
         while True:
-            m.run(1)
-    except:
-        while True:
-            m.run(1)
+            m.run(10)
+    except Exception as e:
+        print(e)
+        sys.exit()
     finally:
-        print()
+        print('FINISHED EXEC')
