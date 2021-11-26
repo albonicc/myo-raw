@@ -450,10 +450,10 @@ if __name__ == '__main__':
     m = MyoRaw(sys.argv[1] if len(sys.argv) >= 2 else None, sender_class=sns)
     m.add_emg_handler(process_data)
     m.add_imu_handler(process_data)
-    m.connect()
 
     m.add_arm_handler(lambda arm, xdir: print('arm', arm, 'xdir', xdir))
     m.add_pose_handler(lambda p: print('pose', p))
+    m.connect()
 
     try:
         while True:
