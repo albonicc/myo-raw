@@ -402,7 +402,8 @@ class MyoRaw(object):
                 self.data_ready = False
 
         if self.data_ready:
-            self.sender_class.send_data(self.processed_data)
+            res = self.sender_class.send_data(self.processed_data)
+            print(f'RESPONSE: {res}')
 
     def on_pose(self, p):
         for h in self.pose_handlers:
