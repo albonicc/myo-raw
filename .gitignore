@@ -2,3 +2,5 @@
 *.pyc
 *.dat
 venv/
+venv2/
+venv3/
