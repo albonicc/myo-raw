@@ -5,7 +5,7 @@ import struct
 import sys
 import threading
 import time
-from .SenderSNS import SenderSNS
+from SenderSNS import SenderSNS
 import serial
 from serial.tools.list_ports import comports
 
