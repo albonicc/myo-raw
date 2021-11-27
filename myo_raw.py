@@ -388,13 +388,14 @@ class MyoRaw(object):
         self.arm_handlers.append(h)
 
     def on_emg(self, emg):
+        if self.data_ready:
+            self.th.join()
         for h in self.emg_handlers:
             res = h(emg, None, None, None)
             self.processed_data.update(**res)
             self.on_emg_flag = True
 
     def on_imu(self, quat, acc, gyro):
-        self.th.join()
         for h in self.imu_handlers:
             res = h(None, quat, acc, gyro)
             self.processed_data.update(**res)
