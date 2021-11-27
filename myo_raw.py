@@ -186,7 +186,6 @@ class MyoRaw(object):
         self.on_emg_flag = False
         self.data_ready = False
         self.response = None
-        self.th = threading.Thread(target=self.sender_class.send_data, args=(self.processed_data,))
 
     def detect_tty(self):
         for p in comports():
@@ -388,8 +387,6 @@ class MyoRaw(object):
         self.arm_handlers.append(h)
 
     def on_emg(self, emg):
-        if self.data_ready:
-            self.th.join()
         for h in self.emg_handlers:
             res = h(emg, None, None, None)
             self.processed_data.update(**res)
@@ -408,9 +405,8 @@ class MyoRaw(object):
                 self.data_ready = False
 
         if self.data_ready:
-            self.th.start()
-            # res = self.sender_class.send_data(self.processed_data)
-            # print(f'RESPONSE: {res}')
+            res = self.sender_class.send_data(self.processed_data)
+            print(f'RESPONSE: {res}')
 
     def on_pose(self, p):
         for h in self.pose_handlers:
