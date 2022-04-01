@@ -1,12 +1,11 @@
 from __future__ import print_function
-
 import enum
 import re
 import struct
 import sys
 import threading
 import time
-
+from SenderSNS import SenderSNS
 import serial
 from serial.tools.list_ports import comports
 
@@ -170,18 +169,23 @@ class BT(object):
 class MyoRaw(object):
     '''Implements the Myo-specific communication protocol.'''
 
-    def __init__(self, tty=None):
+    def __init__(self, tty=None, sender_class=None):
         if tty is None:
             tty = self.detect_tty()
         if tty is None:
             raise ValueError('Myo dongle not found!')
-
+        self.sender_class = sender_class
         self.bt = BT(tty)
         self.conn = None
         self.emg_handlers = []
         self.imu_handlers = []
         self.arm_handlers = []
         self.pose_handlers = []
+        self.processed_data = {}
+        self.on_imu_flag = False
+        self.on_emg_flag = False
+        self.data_ready = False
+        self.response = None
 
     def detect_tty(self):
         for p in comports():
@@ -245,12 +249,11 @@ class MyoRaw(object):
             ## 1000, EMG data becomes slower to respond to changes. In conclusion,
             ## 1000 is probably a good value.
             C = 1000
-            
+
             emg_hz = 50
 
             ## strength of low-pass filtering of EMG data
             emg_smooth = 100
-        
 
             imu_hz = 50
 
@@ -285,7 +288,7 @@ class MyoRaw(object):
                 moving = vals[8]
                 #print(f'emg: {emg}')
                 #print(f'moving: {moving}')
-                self.on_emg(emg, moving)
+                self.on_emg(emg)
             elif attr == 0x1c:
                 vals = unpack('10h', pay)
                 quat = vals[:4]
@@ -305,7 +308,6 @@ class MyoRaw(object):
                 print('data with unknown attr: %02X %s' % (attr, p))
 
         self.bt.add_handler(handle_data)
-
 
     def write_attr(self, attr, val):
         if self.conn is not None:
@@ -372,7 +374,6 @@ class MyoRaw(object):
             ## first byte tells it to vibrate; purpose of second byte is unknown
             self.write_attr(0x19, pack('3B', 3, 1, length))
 
-
     def add_emg_handler(self, h):
         self.emg_handlers.append(h)
 
@@ -385,14 +386,27 @@ class MyoRaw(object):
     def add_arm_handler(self, h):
         self.arm_handlers.append(h)
 
-
-    def on_emg(self, emg, moving):
+    def on_emg(self, emg):
         for h in self.emg_handlers:
-            h(emg, moving)
+            res = h(emg, None, None, None)
+            self.processed_data.update(**res)
+            self.on_emg_flag = True
 
     def on_imu(self, quat, acc, gyro):
         for h in self.imu_handlers:
-            h(quat, acc, gyro)
+            res = h(None, quat, acc, gyro)
+            self.processed_data.update(**res)
+            self.on_imu_flag = True
+            if self.on_emg_flag:
+                self.data_ready = True
+                self.on_imu_flag = False
+                self.on_emg_flag = False
+            else:
+                self.data_ready = False
+
+        if self.data_ready:
+            res = self.sender_class.send_data(self.processed_data)
+            print(f'RESPONSE: {res}')
 
     def on_pose(self, p):
         for h in self.pose_handlers:
@@ -403,86 +417,53 @@ class MyoRaw(object):
             h(arm, xdir)
 
 
+def process_data(e, q, a, g):
+    literals = ['x', 'y', 'z', 'w']
+    e_data = {}
+    q_data = {}
+    a_data = {}
+    g_data = {}
+    processed = {}
+    if e:
+        e_data = {f'pod{index}': val for index, val in enumerate(e)}
+        processed.update(**e_data)
+        print(f'emg: {e}')
+    if q:
+        q_data = {f'magnetometer_{literals[index]}': val for index, val in enumerate(q)}
+        processed.update(**q_data)
+        print(f'magnetometer: {q}')
+    if a:
+        a_data = {f'accelerometer_{literals[index]}': val for index, val in enumerate(a)}
+        processed.update(**a_data)
+        print(f'accelerometer: {a}')
+    if g:
+        g_data = {f'gyroscope_{literals[index]}': val for index, val in enumerate(g)}
+        processed.update(**g_data)
+        print(f'gyroscope: {g}')
+
+    return processed
+
+
 if __name__ == '__main__':
-    # try:
-    #     import pygame
-    #     from pygame.locals import *
-    #     HAVE_PYGAME = True
-    # except ImportError:
-    #     HAVE_PYGAME = False
-
-    # if HAVE_PYGAME:
-    #     w, h = 1200, 400
-    #     scr = pygame.display.set_mode((w, h))
-
-    # last_vals = None
-    # def plot(scr, vals):
-    #     DRAW_LINES = False
-
-    #     global last_vals
-    #     if last_vals is None:
-    #         last_vals = vals
-    #         return
-
-    #     D = 5
-    #     scr.scroll(-D)
-    #     scr.fill((0,0,0), (w - D, 0, w, h))
-    #     for i, (u, v) in enumerate(zip(last_vals, vals)):
-    #         if DRAW_LINES:
-    #             pygame.draw.line(scr, (0,255,0),
-    #                              (w - D, int(h/8 * (i+1 - u))),
-    #                              (w, int(h/8 * (i+1 - v))))
-    #             pygame.draw.line(scr, (255,255,255),
-    #                              (w - D, int(h/8 * (i+1))),
-    #                              (w, int(h/8 * (i+1))))
-    #         else:
-    #             c = int(255 * max(0, min(1, v)))
-    #             scr.fill((c, c, c), (w - D, i * h / 8, D, (i + 1) * h / 8 - i * h / 8));
-
-    #     pygame.display.flip()
-    #     last_vals = vals
-
-    m = MyoRaw(sys.argv[1] if len(sys.argv) >= 2 else None)
-
-    # def proc_emg(emg, moving, times=[]):
-        # if HAVE_PYGAME:
-        #     ## update pygame display
-        #     plot(scr, [e / 2000. for e in emg])
-        # else:
-        #     print(emg)
-
-        # ## print framerate of received data
-        # times.append(time.time())
-        # if len(times) > 20:
-        #     #print((len(times) - 1) / (times[-1] - times[0]))
-        #     times.pop(0)
-
-    # m.add_emg_handler(proc_emg)
-    # m.add_emg_handler(lambda e: print('emg', e))
-    m.add_emg_handler(lambda e, m: print(f'emg: {e} m: {m}'))
-    m.add_imu_handler(lambda q, a, g : print(f'magnetometer: {q} accelerometer: {a} gyroscope {g}\n\n'))
-    m.connect()
+    sns = SenderSNS(
+        key_id='AKIAWGHCR2SGQCR72S4B',
+        secret='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',
+        region_name='us-east-2',
+        topic_ARN='arn:aws:sns:us-east-2:425676887181:testing',
+    )
+    m = MyoRaw(sys.argv[1] if len(sys.argv) >= 2 else None, sender_class=sns)
+    m.add_emg_handler(process_data)
+    m.add_imu_handler(process_data)
 
     m.add_arm_handler(lambda arm, xdir: print('arm', arm, 'xdir', xdir))
     m.add_pose_handler(lambda p: print('pose', p))
+    m.connect()
 
     try:
         while True:
-            m.run(1)
-
-            # if HAVE_PYGAME:
-            #     for ev in pygame.event.get():
-            #         if ev.type == QUIT or (ev.type == KEYDOWN and ev.unicode == 'q'):
-            #             raise KeyboardInterrupt()
-            #         elif ev.type == KEYDOWN:
-            #             if K_1 <= ev.key <= K_3:
-            #                 m.vibrate(ev.key - K_0)
-            #             if K_KP1 <= ev.key <= K_KP3:
-            #                 m.vibrate(ev.key - K_KP0)
-
+            m.run(10)
     except:
         while True:
-            m.run(1)
+            m.run(10)
     finally:
-        #m.disconnect()
-        print()
+        print('FINISHED EXEC')
